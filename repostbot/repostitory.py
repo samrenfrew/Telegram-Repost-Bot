@@ -1,8 +1,10 @@
 import hashlib
 import logging
 import os
+import re
 from dataclasses import dataclass
 from timeit import default_timer as timer
+from urllib.parse import parse_qs, urlsplit
 
 import ujson as json
 from PIL import Image
@@ -19,6 +21,71 @@ from repostbot.whitelist_status import WhitelistAddStatus
 from utils import RepostBotTelegramParams
 
 logger = logging.getLogger("Repostitory")
+
+YOUTUBE_VIDEO_PATH_PREFIXES = {"embed", "live", "shorts", "v"}
+YOUTUBE_HOST_SUFFIXES = ("youtube.com", "youtube-nocookie.com")
+
+
+def _split_url_with_fallback_scheme(url: str):
+    parsed_url = urlsplit(url)
+    if parsed_url.netloc:
+        return parsed_url
+
+    if "://" in url:
+        return parsed_url
+
+    parsed_with_fallback_scheme = urlsplit(f"https://{url}")
+    return parsed_with_fallback_scheme if parsed_with_fallback_scheme.netloc else parsed_url
+
+
+def _normalize_path(path: str) -> str:
+    normalized_path = re.sub(r"/{2,}", "/", path)
+    if normalized_path != "/" and normalized_path.endswith("/"):
+        normalized_path = normalized_path.rstrip("/")
+    return normalized_path
+
+
+def _extract_youtube_video_id(parsed_url) -> str | None:
+    host = (parsed_url.hostname or "").lower()
+    host_without_subdomain = host.removeprefix("www.").removeprefix("m.")
+    path_segments = [segment for segment in parsed_url.path.split("/") if segment]
+
+    if host_without_subdomain == "youtu.be":
+        return path_segments[0] if path_segments else None
+
+    if not any(host_without_subdomain.endswith(youtube_host) for youtube_host in YOUTUBE_HOST_SUFFIXES):
+        return None
+
+    if path_segments and path_segments[0] in YOUTUBE_VIDEO_PATH_PREFIXES and len(path_segments) > 1:
+        return path_segments[1]
+
+    if path_segments and path_segments[0] == "watch":
+        query_params = parse_qs(parsed_url.query)
+        video_id = query_params.get("v", [None])[0]
+        return video_id
+
+    return None
+
+
+def _normalize_url_for_hashing(url: str) -> str | None:
+    stripped_url = url.strip()
+    if not stripped_url:
+        return None
+
+    parsed_url = _split_url_with_fallback_scheme(stripped_url)
+    youtube_video_id = _extract_youtube_video_id(parsed_url)
+    if youtube_video_id:
+        return f"youtube:{youtube_video_id.lower()}"
+
+    host = (parsed_url.hostname or "").lower()
+    path = _normalize_path(parsed_url.path)
+    if not host and not path:
+        return None
+
+    if parsed_url.port and parsed_url.port not in (80, 443):
+        host = f"{host}:{parsed_url.port}" if host else host
+
+    return f"{host}{path}".lower()
 
 
 @dataclass(frozen=True)
@@ -142,7 +209,12 @@ class Repostitory:
         message_urls = set(message.parse_entities(types=url_message_entity_types).values())
         caption_urls = set(message.parse_caption_entities(types=url_message_entity_types).values())
         urls = message_urls.union(caption_urls)
-        url_hashes = {hashlib.sha256(bytes(url, 'utf-8')).hexdigest() for url in urls}
+        normalized_urls = {
+            normalized_url
+            for url in urls
+            if (normalized_url := _normalize_url_for_hashing(url)) is not None
+        }
+        url_hashes = {hashlib.sha256(bytes(url, 'utf-8')).hexdigest() for url in normalized_urls}
 
         return MessageEntityHashes(picture_hash, url_hashes)
 

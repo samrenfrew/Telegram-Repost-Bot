@@ -19,9 +19,107 @@ If someone posts unoriginal content, they will be called out and, ideally, be ve
 - Run Repost Bot with the command `python main.py -c CONFIG_FILE_PATH`
   - If you want to use environment variables to set the Telegram API token and the admin ID, run the above command with `-e` as well. This will be handy if you want to run this on a service like Heroku.
     - Set the Telegram token and, optionally, your user id in the `.env.example` file and save a new file with `.example` removed.
-- Initialize the database with `python repostbot/db/init_db.py`. Confirm that `rebostdb.sqlite` was created and resides in the same folder as `main.py`. 
+- Initialize the database with `python scripts/init_db.py`. Confirm that `repostdb.sqlite` was created and resides in the same folder as `main.py`.
   - If you're upgrading to v0.6.0, check the migration guide to get your existing data into the database.
 - Add the bot to your group and enjoy your oasis of original content!
+
+## Run with Docker
+
+### Quick Docker run (no Compose)
+
+- Build locally:
+  - `docker build -t repostbot .`
+- Run:
+  - `docker run --rm -it \
+    -e TELEGRAM_TOKEN=... \
+    -e BOT_ADMIN_ID=... \
+    -e REPOST_DB_PATH=/data/repostdb.sqlite \
+    -e REPOST_DATA_PATH=/data/group_settings \
+    -v repostbot_data:/data \
+    repostbot`
+- The container runs `scripts/init_db.py` on startup and then starts the bot.
+
+### Docker Compose setup (recommended)
+
+1. **Choose the image**
+   - Use GHCR image (published by GitHub Actions): `ghcr.io/<owner>/<repo>:latest`
+   - Or build locally and use your local tag in `image:`.
+
+2. **Create your `.env` file**
+   - Copy `.env.example` to `.env` and set at least:
+     - `TELEGRAM_TOKEN`
+     - `BOT_ADMIN_ID`
+
+3. **Create your compose file**
+   - Copy `docker-compose.example.yml` to `docker-compose.yml`.
+   - Replace `ghcr.io/<owner>/<repo>:latest` with your image.
+
+4. **Start the stack**
+   - `docker compose pull`
+   - `docker compose up -d`
+   - `docker compose logs -f repostbot`
+
+5. **Upgrade**
+   - `docker compose pull`
+   - `docker compose up -d`
+
+#### Minimal `docker-compose.yml`
+
+```yaml
+services:
+  repostbot:
+    image: ghcr.io/<owner>/<repo>:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REPOST_USE_ENV: ${REPOST_USE_ENV:-true}
+      REPOST_CONFIG_PATH: ${REPOST_CONFIG_PATH:-config/defaultconfig.yaml}
+      REPOST_DROP_PENDING_UPDATES: ${REPOST_DROP_PENDING_UPDATES:-false}
+      REPOST_DB_PATH: ${REPOST_DB_PATH:-/data/repostdb.sqlite}
+      REPOST_DATA_PATH: ${REPOST_DATA_PATH:-/data/group_settings}
+    volumes:
+      - repostbot_data:/data
+
+volumes:
+  repostbot_data:
+```
+
+#### Optional: use a custom YAML config file
+
+If you want to keep bot strings/toggles in your own config file instead of defaults:
+
+- Mount your config into the container (example path: `./config/config.yaml:/config/config.yaml:ro`)
+- Set `REPOST_CONFIG_PATH=/config/config.yaml` in `.env`
+
+Example volume addition:
+
+```yaml
+volumes:
+  - repostbot_data:/data
+  - ./config/config.yaml:/config/config.yaml:ro
+```
+
+### Docker/Compose environment variables
+
+Required (when `REPOST_USE_ENV=true`):
+
+- `TELEGRAM_TOKEN` - Bot token from BotFather
+- `BOT_ADMIN_ID` - Telegram user ID for admin override
+
+Optional:
+
+- `REPOST_USE_ENV` (default: `true`) - pass `-e` to load Telegram credentials from env
+- `REPOST_CONFIG_PATH` (default: `config/defaultconfig.yaml`) - config file path used with `-c`
+- `REPOST_DROP_PENDING_UPDATES` (default: `false`) - pass `-d` at startup
+- `REPOST_DB_PATH` (default: `repostdb.sqlite`) - sqlite database file path
+- `REPOST_DATA_PATH` (optional) - overrides `repost_data_path` from YAML config
+
+### Volumes / persistence
+
+- `/data/repostdb.sqlite` (via `REPOST_DB_PATH`) stores repost history/whitelist/deleted-message records.
+- `/data/group_settings` (via `REPOST_DATA_PATH`) stores per-group settings files.
+- Use a named volume (`repostbot_data`) or bind mount to keep data across restarts and upgrades.
 
 ## RepostBot CLI arguments
 | Argument                          | Effect                                                                         |
