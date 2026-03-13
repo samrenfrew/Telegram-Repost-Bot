@@ -1,14 +1,15 @@
-import sqlite3
 from sqlite3 import Row
 from typing import Iterable
+
+from repostbot.db.db import connect_db
 
 
 class DeletedMessagesDAO:
 
     @staticmethod
     def get_deleted_messages_for_group(group_id: int) -> set[int]:
-        with sqlite3.connect('repostdb.sqlite') as connection:
-            connection.row_factory = sqlite3.Row
+        with connect_db() as connection:
+            connection.row_factory = Row
             cursor = connection.cursor()
             result: list[Row] = cursor.execute(
                 'select message_id from deleted_messages where group_id = ?',
@@ -18,7 +19,7 @@ class DeletedMessagesDAO:
 
     @staticmethod
     def insert_deleted_message_for_group(group_id: int, message_id: int):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.execute(
                 'insert into deleted_messages(group_id, message_id) values (?, ?)',
@@ -27,7 +28,7 @@ class DeletedMessagesDAO:
 
     @staticmethod
     def insert_deleted_messages_for_group(group_id: int, message_ids: Iterable[int]):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.executemany(
                 'insert into deleted_messages(group_id, message_id) values (?, ?)',
@@ -36,7 +37,7 @@ class DeletedMessagesDAO:
 
     @staticmethod
     def remove_all_deleted_message_records_for_group(group_id: int):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.execute(
                 'delete from deleted_messages where group_id = ?',

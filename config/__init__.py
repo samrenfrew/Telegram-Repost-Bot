@@ -155,6 +155,8 @@ def get_config_variables(config_path: str) -> tuple:
         group_whitelist = config_data.get("group_whitelist", default_group_whitelist)
         group_blacklist = config_data.get("group_blacklist", default_group_blacklist)
 
+    repost_data_path = os.environ.get("REPOST_DATA_PATH", repost_data_path)
+
     bot_variables = (
         bot_strings,
         strategy,

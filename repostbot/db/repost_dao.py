@@ -1,8 +1,9 @@
 import itertools
-import sqlite3
 from datetime import datetime
 from sqlite3 import Row
 from typing import Iterable, Callable
+
+from repostbot.db.db import connect_db
 
 
 def group_by[T, K, V](iterable: Iterable[T],
@@ -19,8 +20,8 @@ class RepostDAO:
 
     @staticmethod
     def get_group_reposts(group_id: int) -> dict[str, list[int]]:
-        with sqlite3.connect('repostdb.sqlite') as connection:
-            connection.row_factory = sqlite3.Row
+        with connect_db() as connection:
+            connection.row_factory = Row
             cursor = connection.cursor()
             repost_result: list[Row] = cursor.execute(
                 'select hash_value, message_id from reposts where group_id = ? order by hash_value',
@@ -30,7 +31,7 @@ class RepostDAO:
 
     @staticmethod
     def insert_reposts_for_group(group_id: int, user_id: int, message_id: int, hashes: Iterable[str]):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             now = datetime.now()
             cursor.executemany(
@@ -42,7 +43,7 @@ class RepostDAO:
 
     @staticmethod
     def remove_all_for_group(group_id: int):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.execute(
                 'delete from reposts where group_id = ?',

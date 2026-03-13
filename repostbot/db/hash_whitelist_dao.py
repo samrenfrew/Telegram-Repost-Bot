@@ -1,14 +1,15 @@
-import sqlite3
 from sqlite3 import Row
 from typing import Iterable
+
+from repostbot.db.db import connect_db
 
 
 class HashWhitelistDAO:
 
     @staticmethod
     def get_whitelisted_hashes_for_group(group_id: int) -> set[str]:
-        with sqlite3.connect('repostdb.sqlite') as connection:
-            connection.row_factory = sqlite3.Row
+        with connect_db() as connection:
+            connection.row_factory = Row
             cursor = connection.cursor()
             result: list[Row] = cursor.execute(
                 'select hash_value from hash_whitelist where group_id = ?',
@@ -18,7 +19,7 @@ class HashWhitelistDAO:
 
     @staticmethod
     def insert_whitelist_hashes_for_group(group_id: int, hashes_to_add: Iterable[str]):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.executemany(
                 'insert into hash_whitelist(group_id, hash_value) values (?, ?)',
@@ -27,7 +28,7 @@ class HashWhitelistDAO:
 
     @staticmethod
     def remove_whitelist_hashes_for_group(group_id: int, hashes_to_remove: Iterable[str]):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.executemany(
                 'delete from hash_whitelist where group_id = ? and hash_value = ?',
@@ -36,7 +37,7 @@ class HashWhitelistDAO:
 
     @staticmethod
     def remove_all_whitelist_hashes_for_group(group_id: int):
-        with sqlite3.connect('repostdb.sqlite') as connection:
+        with connect_db() as connection:
             cursor = connection.cursor()
             cursor.execute(
                 'delete from hash_whitelist where group_id = ?',
