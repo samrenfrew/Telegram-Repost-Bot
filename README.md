@@ -25,6 +25,8 @@ If someone posts unoriginal content, they will be called out and, ideally, be ve
 
 ## Run with Docker
 
+### Quick Docker run (no Compose)
+
 - Build locally:
   - `docker build -t repostbot .`
 - Run:
@@ -36,17 +38,88 @@ If someone posts unoriginal content, they will be called out and, ideally, be ve
     -v repostbot_data:/data \
     repostbot`
 - The container runs `scripts/init_db.py` on startup and then starts the bot.
-- For Compose stacks, copy `docker-compose.example.yml` and replace `ghcr.io/<owner>/<repo>:latest` with your published image.
+
+### Docker Compose setup (recommended)
+
+1. **Choose the image**
+   - Use GHCR image (published by GitHub Actions): `ghcr.io/<owner>/<repo>:latest`
+   - Or build locally and use your local tag in `image:`.
+
+2. **Create your `.env` file**
+   - Copy `.env.example` to `.env` and set at least:
+     - `TELEGRAM_TOKEN`
+     - `BOT_ADMIN_ID`
+
+3. **Create your compose file**
+   - Copy `docker-compose.example.yml` to `docker-compose.yml`.
+   - Replace `ghcr.io/<owner>/<repo>:latest` with your image.
+
+4. **Start the stack**
+   - `docker compose pull`
+   - `docker compose up -d`
+   - `docker compose logs -f repostbot`
+
+5. **Upgrade**
+   - `docker compose pull`
+   - `docker compose up -d`
+
+#### Minimal `docker-compose.yml`
+
+```yaml
+services:
+  repostbot:
+    image: ghcr.io/<owner>/<repo>:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REPOST_USE_ENV: ${REPOST_USE_ENV:-true}
+      REPOST_CONFIG_PATH: ${REPOST_CONFIG_PATH:-config/defaultconfig.yaml}
+      REPOST_DROP_PENDING_UPDATES: ${REPOST_DROP_PENDING_UPDATES:-false}
+      REPOST_DB_PATH: ${REPOST_DB_PATH:-/data/repostdb.sqlite}
+      REPOST_DATA_PATH: ${REPOST_DATA_PATH:-/data/group_settings}
+    volumes:
+      - repostbot_data:/data
+
+volumes:
+  repostbot_data:
+```
+
+#### Optional: use a custom YAML config file
+
+If you want to keep bot strings/toggles in your own config file instead of defaults:
+
+- Mount your config into the container (example path: `./config/config.yaml:/config/config.yaml:ro`)
+- Set `REPOST_CONFIG_PATH=/config/config.yaml` in `.env`
+
+Example volume addition:
+
+```yaml
+volumes:
+  - repostbot_data:/data
+  - ./config/config.yaml:/config/config.yaml:ro
+```
 
 ### Docker/Compose environment variables
 
-- `TELEGRAM_TOKEN` (required when `REPOST_USE_ENV=true`)
-- `BOT_ADMIN_ID` (required when `REPOST_USE_ENV=true`)
+Required (when `REPOST_USE_ENV=true`):
+
+- `TELEGRAM_TOKEN` - Bot token from BotFather
+- `BOT_ADMIN_ID` - Telegram user ID for admin override
+
+Optional:
+
 - `REPOST_USE_ENV` (default: `true`) - pass `-e` to load Telegram credentials from env
 - `REPOST_CONFIG_PATH` (default: `config/defaultconfig.yaml`) - config file path used with `-c`
 - `REPOST_DROP_PENDING_UPDATES` (default: `false`) - pass `-d` at startup
 - `REPOST_DB_PATH` (default: `repostdb.sqlite`) - sqlite database file path
 - `REPOST_DATA_PATH` (optional) - overrides `repost_data_path` from YAML config
+
+### Volumes / persistence
+
+- `/data/repostdb.sqlite` (via `REPOST_DB_PATH`) stores repost history/whitelist/deleted-message records.
+- `/data/group_settings` (via `REPOST_DATA_PATH`) stores per-group settings files.
+- Use a named volume (`repostbot_data`) or bind mount to keep data across restarts and upgrades.
 
 ## RepostBot CLI arguments
 | Argument                          | Effect                                                                         |
