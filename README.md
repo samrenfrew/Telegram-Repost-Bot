@@ -19,9 +19,34 @@ If someone posts unoriginal content, they will be called out and, ideally, be ve
 - Run Repost Bot with the command `python main.py -c CONFIG_FILE_PATH`
   - If you want to use environment variables to set the Telegram API token and the admin ID, run the above command with `-e` as well. This will be handy if you want to run this on a service like Heroku.
     - Set the Telegram token and, optionally, your user id in the `.env.example` file and save a new file with `.example` removed.
-- Initialize the database with `python repostbot/db/init_db.py`. Confirm that `rebostdb.sqlite` was created and resides in the same folder as `main.py`. 
+- Initialize the database with `python scripts/init_db.py`. Confirm that `repostdb.sqlite` was created and resides in the same folder as `main.py`.
   - If you're upgrading to v0.6.0, check the migration guide to get your existing data into the database.
 - Add the bot to your group and enjoy your oasis of original content!
+
+## Run with Docker
+
+- Build locally:
+  - `docker build -t repostbot .`
+- Run:
+  - `docker run --rm -it \
+    -e TELEGRAM_TOKEN=... \
+    -e BOT_ADMIN_ID=... \
+    -e REPOST_DB_PATH=/data/repostdb.sqlite \
+    -e REPOST_DATA_PATH=/data/group_settings \
+    -v repostbot_data:/data \
+    repostbot`
+- The container runs `scripts/init_db.py` on startup and then starts the bot.
+- For Compose stacks, copy `docker-compose.example.yml` and replace `ghcr.io/<owner>/<repo>:latest` with your published image.
+
+### Docker/Compose environment variables
+
+- `TELEGRAM_TOKEN` (required when `REPOST_USE_ENV=true`)
+- `BOT_ADMIN_ID` (required when `REPOST_USE_ENV=true`)
+- `REPOST_USE_ENV` (default: `true`) - pass `-e` to load Telegram credentials from env
+- `REPOST_CONFIG_PATH` (default: `config/defaultconfig.yaml`) - config file path used with `-c`
+- `REPOST_DROP_PENDING_UPDATES` (default: `false`) - pass `-d` at startup
+- `REPOST_DB_PATH` (default: `repostdb.sqlite`) - sqlite database file path
+- `REPOST_DATA_PATH` (optional) - overrides `repost_data_path` from YAML config
 
 ## RepostBot CLI arguments
 | Argument                          | Effect                                                                         |

@@ -1,0 +1,17 @@
+services:
+  repostbot:
+    image: ghcr.io/<owner>/<repo>:latest
+    restart: unless-stopped
+    environment:
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      BOT_ADMIN_ID: ${BOT_ADMIN_ID}
+      REPOST_USE_ENV: ${REPOST_USE_ENV:-true}
+      REPOST_CONFIG_PATH: ${REPOST_CONFIG_PATH:-config/defaultconfig.yaml}
+      REPOST_DROP_PENDING_UPDATES: ${REPOST_DROP_PENDING_UPDATES:-false}
+      REPOST_DB_PATH: ${REPOST_DB_PATH:-/data/repostdb.sqlite}
+      REPOST_DATA_PATH: ${REPOST_DATA_PATH:-/data/group_settings}
+    volumes:
+      - repostbot_data:/data
+
+volumes:
+  repostbot_data:
